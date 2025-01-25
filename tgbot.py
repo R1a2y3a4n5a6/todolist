@@ -1,3 +1,4 @@
+import json
 import telebot
 from datetime import datetime
 from database import add_task, get_tasks, delete_task, init_db, renumber_tasks, mark_task_as_completed, set_due_time
@@ -10,21 +11,38 @@ bot = telebot.TeleBot("7054429485:AAEZSAk1_vN_3zrBZBHwza0TaDDmKbJHkLU")
 @bot.message_handler(commands=['start'])
 def greet_user(message):
     mess = '''Добро пожаловать в бот To-Do List!
-    
+
 Тут вы можете написать ваши планы на день.
-    
+
 Комманды:
-    
+
     /add - добавить задачу 
     /list - вывести список задач
     /delete - удалить
     /mark - отметить задачу выполненной
+    /timer - добавить время до выполнения задачи
+    /notes - заметки
     '''
     bot.send_message(message.chat.id, mess)
 
 
-    # /timer - добавить время до выполнения задачи
-    # /notes - заметки
+# Функция для загрузки задач из файла
+def load_tasks():
+    try:
+        with open('tasks.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+# Функция для сохранения задач в файл
+def save_tasks(tasks):
+    with open('tasks.json', 'w') as f:
+        json.dump(tasks, f, indent=4)
+
+
+tasks = load_tasks()
+
 
 # ФУНКЦИЯ ДОБАВЛЕНИЯ ЗАДАЧИ
 
@@ -33,13 +51,12 @@ def ask(message):
     msg = bot.reply_to(message, 'Введите задачу: ')
     bot.register_next_step_handler(msg, save)
 
+
 def save(message):
     task = message.text
-    add_task(task)
+    add_task(task)  # Добавляем задачу в базу данных
+    save_tasks(get_tasks())  # Сохраняем все задачи в файл
     bot.reply_to(message, f'Задача "{task}" добавлена!')
-
-if __name__ == "__main__":
-    init_db()
 
 
 # ФУНКЦИЯ ПОКАЗА ВСЕХ ЗАДАЧ
@@ -57,8 +74,6 @@ def show_everything(message):
         response = 'У вас пока нет записанных задач.'
     bot.reply_to(message, response)
 
-if __name__ == "__main__":
-    init_db()
 
 # ФУНКЦИЯ УДАЛЕНИЯ ЗАДАЧИ
 
@@ -74,6 +89,7 @@ def get_task_id(message):
     else:
         response = 'У вас нет задач для удаления.'
         bot.reply_to(message, response)
+
 
 def remove_task(message):
     try:
@@ -100,6 +116,7 @@ def get_id(message):
     else:
         response = 'У вас нет задач для удаления.'
         bot.reply_to(message, response)
+
 
 def mark_task(message):
     try:
@@ -134,6 +151,7 @@ def ask_for_task(message):
     else:
         bot.reply_to(message, "У вас нет задач для установки времени.")
 
+
 def ask_for_time(message):
     try:
         task_id = int(message.text)
@@ -141,6 +159,7 @@ def ask_for_time(message):
         bot.register_next_step_handler(msg, lambda m: save_due_time(m, task_id))
     except ValueError:
         bot.reply_to(message, "Пожалуйста, введите корректный номер задачи.")
+
 
 def save_due_time(message, task_id):
     try:
@@ -150,24 +169,10 @@ def save_due_time(message, task_id):
     except ValueError:
         bot.reply_to(message, "Пожалуйста, введите время в правильном формате (ЧЧ:ММ).")
 
-@bot.message_handler(commands=['list'])
-def show_everything(message):
-    tasks = get_tasks()
-    if tasks:
-        response = 'Ваши задачи:\n'
-        for task in tasks:
-            status = '✅' if task[2] else ''
-            due_time = f" (Время: {task[3]})" if task[3] else ''
-            response += f'\n{task[0]}. {task[1]} {status}{due_time}'
-    else:
-        response = 'У вас пока нет записанных задач.'
-    bot.reply_to(message, response)
 
+# Инициализация базы данных
 if __name__ == "__main__":
     init_db()
 
-
-
-
-
+# Запуск бота
 bot.polling(none_stop=True)
